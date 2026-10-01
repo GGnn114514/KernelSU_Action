@@ -12,12 +12,6 @@ GCC64_DIR="${WORKSPACE}/gcc-64"
 GCC32_DIR="${WORKSPACE}/gcc-32"
 
 AOSP_CLANG_BASE="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86"
-# Git mirror for the prebuilt repos. Tsinghua mirrors AOSP as plain git
-# repositories, so the "+archive" tarball endpoints are NOT available here --
-# only "git clone" works. Override with AOSP_GIT_MIRROR if this one is down;
-# BFSU (https://mirrors.bfsu.edu.cn/git/AOSP) and USTC
-# (https://mirrors.ustc.edu.cn/aosp) are the usual fallbacks.
-AOSP_GIT_MIRROR="${AOSP_GIT_MIRROR:-https://mirrors.tuna.tsinghua.edu.cn/git/AOSP}"
 
 # Known-good AOSP clang branch/version pairs, verified 2026-07-27.
 #
@@ -112,9 +106,7 @@ setup_clang() {
 }
 
 # AOSP's GCC 4.9 prebuilts are still the binutils of choice for pre-5.x trees
-# that cannot yet use LLVM's integrated assembler. The prebuilt repos are
-# cloned from a git mirror because the "+archive" tarball endpoints are not
-# mirrored (and are the ones that keep returning 503 on CI).
+# that cannot yet use LLVM's integrated assembler.
 setup_gcc() {
 	local gcc_tag=${AOSP_GCC_TAG:-android-12.1.0_r27}
 
@@ -125,10 +117,10 @@ setup_gcc() {
 		endgroup
 	elif is_true "${ENABLE_GCC_ARM64:-false}"; then
 		group "Downloading AOSP GCC (arm64)"
-		rm -rf "$GCC64_DIR"
-		retry 3 git clone -q --depth=1 -b "${gcc_tag}" \
-			"${AOSP_GIT_MIRROR}/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9" \
-			"$GCC64_DIR" || die "failed to clone AOSP GCC arm64 from ${AOSP_GIT_MIRROR}"
+		mkdir -p "$GCC64_DIR"
+		fetch "https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/+archive/refs/tags/${gcc_tag}.tar.gz" \
+			"${WORKSPACE}/gcc-aarch64.tar.gz"
+		extract_archive "${WORKSPACE}/gcc-aarch64.tar.gz" "$GCC64_DIR"
 		export_env GCC_64 "CROSS_COMPILE=${GCC64_DIR}/bin/aarch64-linux-android-"
 		endgroup
 	fi
@@ -140,10 +132,10 @@ setup_gcc() {
 		endgroup
 	elif is_true "${ENABLE_GCC_ARM32:-false}"; then
 		group "Downloading AOSP GCC (arm32)"
-		rm -rf "$GCC32_DIR"
-		retry 3 git clone -q --depth=1 -b "${gcc_tag}" \
-			"${AOSP_GIT_MIRROR}/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9" \
-			"$GCC32_DIR" || die "failed to clone AOSP GCC arm32 from ${AOSP_GIT_MIRROR}"
+		mkdir -p "$GCC32_DIR"
+		fetch "https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9/+archive/refs/tags/${gcc_tag}.tar.gz" \
+			"${WORKSPACE}/gcc-arm.tar.gz"
+		extract_archive "${WORKSPACE}/gcc-arm.tar.gz" "$GCC32_DIR"
 		export_env GCC_32 "CROSS_COMPILE_ARM32=${GCC32_DIR}/bin/arm-linux-androideabi-"
 		endgroup
 	fi
@@ -176,8 +168,8 @@ setup_mkbootimg() {
 	local dir="${WORKSPACE}/tools"
 	rm -rf "$dir"
 	retry 3 git clone -q --depth=1 -b main-kernel \
-		"${AOSP_GIT_MIRROR}/platform/system/tools/mkbootimg" "$dir" \
-		|| die "failed to clone mkbootimg from ${AOSP_GIT_MIRROR}"
+		https://android.googlesource.com/platform/system/tools/mkbootimg "$dir" \
+		|| die "failed to clone mkbootimg"
 	ok "mkbootimg ready"
 	endgroup
 }
